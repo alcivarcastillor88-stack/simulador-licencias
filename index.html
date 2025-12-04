@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador Profesional</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f5f7fa;
+      padding: 20px;
+    }
+    #container {
+      width: 600px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    button {
+      background: #1976d2;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0d47a1;
+    }
+    .hidden { display:none; }
+  </style>
+</head>
+
+<body>
+
+<div id="container">
+
+<h2>Validación de Serial</h2>
+<input id="serial" placeholder="Ingresa tu serial" style="width:100%; padding:10px;"><br>
+<button onclick="validarSerial()">Ingresar</button>
+<p id="status"></p>
+
+<div id="simulador" class="hidden">
+
+<h2>Simulador</h2>
+
+<h3>Categoría:</h3>
+<select id="categoria"></select>
+<button onclick="iniciarSimulador()">Iniciar</button>
+
+<div id="preguntaBox" class="hidden">
+  <h3 id="preguntaTexto"></h3>
+  <div id="opciones"></div>
+  <p>Puntaje: <span id="puntaje">0</span></p>
+  <p>Tiempo restante: <span id="timer">02:00:00</span></p>
+</div>
+
+<div id="resultadoBox" class="hidden">
+  <h2>Resultados finales</h2>
+  <p>Puntuación total: <span id="resultadoFinal"></span></p>
+</div>
+
+</div>
+
+</div>
+
+<!-- Archivos de configuración y preguntas -->
+<script src="config.js"></script>
+<script src="preguntas.js"></script>
+
+<script>
+// ==================== GENERAR ID DEL DISPOSITIVO ====================
+function getDeviceID() {
+  if (!localStorage.deviceID) {
+    localStorage.deviceID = "dev-" + Math.random().toString(36).substring(2);
+  }
+  return localStorage.deviceID;
+}
+
+// ==================== LLENAR CATEGORÍAS ====================
+window.onload = () => {
+  const catSel = document.getElementById("categoria");
+  Object.keys(preguntas).forEach(cat => {
+    let op = document.createElement("option");
+    op.value = cat;
+    op.innerText = cat.toUpperCase();
+    catSel.appendChild(op);
+  });
+};
+
+// ==================== VALIDAR SERIAL ====================
+function validarSerial() {
+  const serial = document.getElementById("serial").value;
+  const device = getDeviceID();
+
+  fetch(`${API.API_URL}?serial=${serial}&device=${device}&key=${API.SECRET_KEY}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.status === "ok") {
+        document.getElementById("status").innerHTML = "Acceso concedido ✔";
+        document.getElementById("simulador").classList.remove("hidden");
+      } else {
+        document.getElementById("status").innerHTML = res.msg;
+      }
+    });
+}
+
+// ==================== VARIABLES ====================
+let listaPreguntas = [];
+let index = 0;
+let puntos = 0;
+let tiempo = 7200; // 2 horas en segundos
+
+// ==================== RELOJ ====================
+function iniciarReloj() {
+  setInterval(() => {
+    tiempo--;
+    let h = String(Math.floor(tiempo / 3600)).padStart(2, "0");
+    let m = String(Math.floor((tiempo % 3600) / 60)).padStart(2, "0");
+    let s = String(tiempo % 60).padStart(2, "0");
+    document.getElementById("timer").innerText = `${h}:${m}:${s}`;
+
+    if (tiempo <= 0) {
+      mostrarResultados();
+    }
+  }, 1000);
+}
+
+// ==================== INICIAR SIMULADOR ====================
+function iniciarSimulador() {
+  const cat = document.getElementById("categoria").value;
+  listaPreguntas = preguntas[cat];
+  index = 0;
+  puntos = 0;
+
+  document.getElementById("preguntaBox").classList.remove("hidden");
+  mostrarPregunta();
+  iniciarReloj();
+}
+
+// ==================== MOSTRAR PREGUNTA ====================
+function mostrarPregunta() {
+  if (index >= listaPreguntas.length) {
+    mostrarResultados();
+    return;
+  }
+
+  let q = listaPreguntas[index];
+
+  document.getElementById("preguntaTexto").innerText = q.p;
+
+  let opcionesDiv = document.getElementById("opciones");
+  opcionesDiv.innerHTML = "";
+
+  q.o.forEach((texto, i) => {
+    let btn = document.createElement("button");
+    btn.innerText = texto;
+    btn.style.display = "block";
+    btn.style.marginBottom = "10px";
+    btn.onclick = () => seleccionarRespuesta(i);
+    opcionesDiv.appendChild(btn);
+  });
+}
+
+// ==================== SELECCIONAR RESPUESTA ====================
+function seleccionarRespuesta(opcion) {
+  let q = listaPreguntas[index];
+
+  if (opcion === q.r) puntos++;
+
+  document.getElementById("puntaje").innerText = puntos;
+  index++;
+
+  mostrarPregunta();
+}
+
+// ==================== RESULTADOS ====================
+function mostrarResultados() {
+  document.getElementById("preguntaBox").classList.add("hidden");
+  document.getElementById("resultadoBox").classList.remove("hidden");
+  document.getElementById("resultadoFinal").innerText = puntos;
+}
+</script>
+
+</body>
+</html>
